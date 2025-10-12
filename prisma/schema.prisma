@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id              String           @id @db.Uuid
+  fullName        String?
+  aboutMe         String?
+  age             Int?
+  gender          String?
+  timezone        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  currentMoodId   Int?
+  lastActiveAt    DateTime?
+  blockedBy       Block[]          @relation("blockedBy")
+  blocks          Block[]          @relation("blocks")
+  chats           ChatMember[]
+  friendSlots     FriendSlot[]
+  currentMood     Mood?            @relation("ProfileCurrentMood", fields: [currentMoodId], references: [id])
+  subMoods        ProfileSubMood[]
+  topics          ProfileTopic[]
+  reportsReceived Report[]         @relation("reportsReceived")
+  reportsMade     Report[]         @relation("reportsMade")
+  preference      UserPreference?
+}
+
+model Mood {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  icon        String?
+  description String?
+  profiles    Profile[] @relation("ProfileCurrentMood")
+  subMoods    SubMood[]
+}
+
+model SubMood {
+  id               Int                    @id @default(autoincrement())
+  name             String                 @unique
+  description      String?
+  moodId           Int
+  category         String?
+  visible          Boolean                @default(true)
+  profiles         ProfileSubMood[]
+  mood             Mood                   @relation(fields: [moodId], references: [id])
+  compatibilitiesA SubMoodCompatibility[] @relation("SubMoodA")
+  compatibilitiesB SubMoodCompatibility[] @relation("SubMoodB")
+  topics           SubMoodTopic[]
+}
+
+model ProfileSubMood {
+  id        Int     @id @default(autoincrement())
+  profileId String  @db.Uuid
+  subMoodId Int
+  profile   Profile @relation(fields: [profileId], references: [id])
+  subMood   SubMood @relation(fields: [subMoodId], references: [id])
+
+  @@unique([profileId, subMoodId])
+}
+
+model Topic {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  category    String?
+  createdAt   DateTime       @default(now())
+  description String?
+  updatedAt   DateTime       @updatedAt
+  visible     Boolean        @default(true)
+  profiles    ProfileTopic[]
+  subMoods    SubMoodTopic[]
+}
+
+model SubMoodTopic {
+  id        Int     @id @default(autoincrement())
+  subMoodId Int
+  topicId   Int
+  relevance Int?
+  subMood   SubMood @relation(fields: [subMoodId], references: [id])
+  topic     Topic   @relation(fields: [topicId], references: [id])
+
+  @@unique([subMoodId, topicId])
+}
+
+model ProfileTopic {
+  id        Int     @id @default(autoincrement())
+  profileId String  @db.Uuid
+  topicId   Int
+  profile   Profile @relation(fields: [profileId], references: [id])
+  topic     Topic   @relation(fields: [topicId], references: [id])
+
+  @@unique([profileId, topicId])
+}
+
+model UserPreference {
+  userId              String   @id @db.Uuid
+  preferredGenders    String[]
+  preferredAgeMin     Int?
+  preferredAgeMax     Int?
+  preferredTopics     Int[]
+  preferredMacroMoods Int[]
+  intent              String?
+  tolerateAgeMismatch Int?
+  allowAnyGender      Boolean  @default(true)
+  user                Profile  @relation(fields: [userId], references: [id])
+}
+
+model SubMoodCompatibility {
+  id         Int               @id @default(autoincrement())
+  subMoodAId Int
+  subMoodBId Int
+  score      Float
+  type       CompatibilityType @default(COMPLEMENTARY)
+  subMoodA   SubMood           @relation("SubMoodA", fields: [subMoodAId], references: [id])
+  subMoodB   SubMood           @relation("SubMoodB", fields: [subMoodBId], references: [id])
+
+  @@unique([subMoodAId, subMoodBId])
+}
+
+/// Friend slots (permanent friends)
+model FriendSlot {
+  id        Int      @id @default(autoincrement())
+  profileId String   @db.Uuid
+  slotIndex Int
+  friendId  String?  @db.Uuid
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id])
+}
+
+/// Match / chat infra outlines (simplified)
+model ChatRoom {
+  id        String       @id @default(uuid())
+  createdAt DateTime     @default(now())
+  members   ChatMember[]
+  messages  Message[]
+}
+
+model ChatMember {
+  id        Int      @id @default(autoincrement())
+  roomId    String
+  profileId String   @db.Uuid
+  joinedAt  DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  room      ChatRoom @relation(fields: [roomId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  roomId    String
+  senderId  String   @db.Uuid
+  text      String
+  createdAt DateTime @default(now())
+  room      ChatRoom @relation(fields: [roomId], references: [id])
+}
+
+/// blocking/reporting
+model Block {
+  id        Int      @id @default(autoincrement())
+  blockerId String   @db.Uuid
+  blockedId String   @db.Uuid
+  createdAt DateTime @default(now())
+  blockedBy Profile  @relation("blockedBy", fields: [blockedId], references: [id])
+  blocks    Profile  @relation("blocks", fields: [blockerId], references: [id])
+}
+
+model Report {
+  id         Int      @id @default(autoincrement())
+  reporterId String   @db.Uuid
+  reportedId String   @db.Uuid
+  reason     String
+  data       Json?
+  createdAt  DateTime @default(now())
+  reported   Profile  @relation("reportsReceived", fields: [reportedId], references: [id])
+  reporter   Profile  @relation("reportsMade", fields: [reporterId], references: [id])
+}
+
+enum CompatibilityType {
+  PARALLEL
+  COMPLEMENTARY
+  OPPOSING
+}
