@@ -46,6 +46,14 @@ git commit -m "Add description of your feature"
 git push -u origin feature/your-feature-name
 ```
 
+if already added the feature then just run 
+
+```
+git add .
+git commit -m "changes to feature"
+git push
+```
+
 ## Step 9: Open a Pull Request (PR) on GitHub
 ```
 Base branch: dev

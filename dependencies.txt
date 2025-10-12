@@ -1,0 +1,12 @@
+npm uninstall vaul
+npm install prisma @prisma/client
+npx prisma init
+npm install @supabase/supabase-js
+
+
+npm install -D ts-node typescript
+npx prisma migrate dev --name update-submoods
+npx prisma generate
+
+npx ts-node prisma/seed.ts
+npx prisma db seed
